@@ -1,0 +1,56 @@
+body{
+  font: Calibri;
+  background: #2a1818;
+}
+
+#deck-waveform{
+  height: 150px;
+  display: block;
+}
+
+#current-time-mark{
+  height: 150px;
+  width:1px;
+  border: 1px solid #5FBA7D;
+  background: #5FBA7D;
+  position: absolute;
+  left: 500px;
+  z-index: 10;
+}
+
+.btns-below{
+  display: flex;
+}
+
+.deck-btn{
+  width: 80px;
+  height: 40px;
+  border: 1px solid #e2dada;
+  color: #FFF;
+  padding: 5px;
+  margin: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.deck-btn:hover {
+  cursor: pointer;
+}
+
+.deck-btn.small {
+  width: 40px;
+  height: 40px;
+}
+
+#btnDeck_play{
+  background: #088705;
+}
+
+#btnDeck_stop{
+  background: #818705;
+}
+
+#deck{
+  color: #FFF;
+}
