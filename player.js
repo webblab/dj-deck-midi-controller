@@ -3,163 +3,189 @@ const fs = require('fs');
 const mt = require('music-tempo');
 const toArrayBuffer = require('to-arraybuffer');
 var midi = null;
+var lblCurrentTime = document.getElementById('lblDeck_current_ac_time');
+var lblStartedAtTime = document.getElementById('lblDeck_started_at_time');
+var lblStoppedAtTime = document.getElementById('lblDeck_stopped_at_time');
+var lblDeckRate = document.getElementById('lblDeck_rate');
+var lblBpm = document.getElementById('lblDeck_bpm');
 
 window.addEventListener('load', function(){
-  init();
-  Deck.loadTrack();
-  cycle();
+  var deckA = new Deck();
+
+  deckA.loadTrack();
+
 }, false);
 
 
 navigator.requestMIDIAccess().then( onMIDISuccess, onMIDIFailure );
 
-var lblBpm = document.getElementById('lblDeck_bpm');
 
-var Deck = {
-  color1: '#065ABC',
-  color2: '#ABE6FE',
-  color3: '#FEF200',
-  width: 32767,
-  height: 150,
-  volume: 1,
-  mute: false,
-  zoom: 0,
-  zoomStep: 3,
-  playbackRate: 1,
-  startTime: 0,
-  stopTime: 0,
-  playbackTime: 0,
-  timeLabel: document.getElementById('lblDeck_time'),
-  playing: false,
-  timeStep: 0,
+class Deck {
+  constructor(){
+    this.color2 = '#ABE6FE';                                                            // TODO read from JSON
+    this.color1 = '#065ABC';
+    this.color3 = '#FEF200';
+    this.width = 32767;
+    this.height = 150;
+    this.volume = 1;
+    this.mute = false;
+    this.zoomStep = 3;
+    this.playbackRate = 1;
+    this.startedAtTime = 0;
+    this.stopTime = 0;
+    this.playbackTime = 0;
+    this.timeLabel = document.getElementById('lblDeck_time');
+    this.playing = false;
+    this.paused =false;
+    this.timeStep = 0;
+    this.loaded = false;
 
-  container: {
-    waveform: '',
-    element: 'deck-waveform',
-    defined: false
-  },
+    this.container = {
+      waveform: '',
+      element: 'deck-waveform',
+      defined: false
+    },
 
-  currentTimeMark: '',
-  audioCtx:{},
-  audioBuffer: {},
-  audioData: [],
-  tempoData: {},
-  track: {
-    playbackRate: 1,
-  },
-  trackSrc: 'snd/test_loop.wav',
-  beatTimes: [],
-  cuePoints: [0,0,0,0],
+    this.currentTimeMark = '';
+    this.audioCtx ={};
+    this.audioBuffer = {};
+    this.audioData = [];
+    this.tempoData = {};
+    this.track = {};
+    this.trackSrc = 'snd/test_loop.wav';
+    this.beatTimes = [];
+    this.cuePoints = [0,0,0,0];
+    this.audioCtx = new AudioContext();
 
-  zoom: function(value){
+    document.getElementById('current-time-mark').style.left = '760px';
+
+    this.bindButtons();
+    // this.loadTrack();
+    // this.reDraw();
+  }
+
+  zoom(value){
     var newValue;
     if(value == '+'){
       newValue = this.width * this.zoomStep;
       if(newValue < 32767) {                                                    // 32767px max. canvas size
         this.width = newValue;
+        this.drawWaveform();
+      } else {
+        this.width = 32767;
+        this.drawWaveform();
       }
     }
     if(value == '-'){//&& this.width > 1500){
       newValue = this.width / this.zoomStep;
       if(newValue > 800) {
         this.width = newValue;
+        this.drawWaveform();
       }
     }
     if(value == '0'){
       this.width = 32767;
+      this.drawWaveform();
     }
     this.setTimeStep();
-    this.drawWaveform();
-  },
+  }
 
-  loadTrack: function(){
-    console.time('Load-Track');
-    this.audioCtx = new AudioContext();
-    this.audioCtx.decodeAudioData(
-      toArrayBuffer(fs.readFileSync(Deck.trackSrc)),
-      processAudioData
-    );
-    console.timeEnd('Load-Track');
-  },
+  loadTrack(){
+    var _deck = this;
+    this.arrayBuffer = toArrayBuffer(fs.readFileSync(this.trackSrc));
+    this.audioCtx.decodeAudioData(this.arrayBuffer, function(buffer){
+      _deck.audioBuffer = buffer;
+      _deck.processAudioData();
+    });
+    this.loaded = true;
+  }
 
-  play: function(){
-    if(!this.playing){
-      this.track = this.audioCtx.createBufferSource();
-      this.track.buffer = this.audioBuffer;
-      this.track.playbackRate = this.playbackRate;
-      this.track.connect(this.audioCtx.destination);
+  connect(){
+    this.track = this.audioCtx.createBufferSource();
+    this.track.buffer = this.audioBuffer;
+    this.track.connect(this.audioCtx.destination);
+  }
+
+  play(){
+    if(this.loaded && !this.playing){
+      this.connect();
       this.track.start(0, this.stopTime / 1000);
-      this.startTime = this.audioCtx.currentTime;
+      this.startedAtTime = this.audioCtx.currentTime;
+      this.reDraw();
       this.playing = true;
+      this.paused = false;
     }
-  },
+  }
 
-  pause: function(){
-    this.track.stop();
-    this.track.disconnect();
-    this.stopTime = this.playbackTime;
-    this.playing = false;
-  },
+  pause(){
+    if(this.playing){
+      this.track.stop();
+      // this.track.disconnect();
+      this.stopTime = this.playbackTime;
+      this.playing = false;
+      this.paused = true;
+    }
+  }
 
-  stop: function(){
-    this.track.stop();
-    this.track.disconnect();
-    this.stopTime = 0;
-    this.playing = false;
-  },
+  stop(){
+    if(this.playing){
+      this.track.stop();
+      // this.track.disconnect();
+      this.stopTime = 0;
+      this.playing = false;
+      this.reDraw();
+    }
+  }
 
-  displayPlaybackTime: function(){
-    this.timeLabel.textContent = this.playbackTime / 1000;
-  },
+  displayPlaybackTime(){
+    this.timeLabel.textContent = this.playbackTime;
+  }
 
-  setTimeStep: function(){
+  setTimeStep(){
     this.timeStep = this.width / (this.audioBuffer.duration * 1000);
-  },
+  }
 
-  setCuePoint: function(cuePoint){
+  setCuePoint(cuePoint){
     cuePoint--;
-    this.cuePoints[cuePoint] = this.playbackTime;
-    this.drawCuePoint(cuePoint);
-  },
+    if(this.cuePoints[cuePoint] == 0){
+      this.cuePoints[cuePoint] = this.playbackTime;
+      this.drawCuePoint(cuePoint);
+    }
+  }
 
-  delCuePoint: function(cuePoint){
+  delCuePoint(cuePoint){
     cuePoint--;
     var ctx = this.waveform.getContext("2d");
     ctx.clearRect(0, 0, ctx.width, ctx.height);
     this.cuePoints[cuePoint] = 0;
     this.drawWaveform();
-  },
+  }
 
-  drawCuePoint: function(cuePoint){
-
+  drawCuePoint(cuePoint){
     if(this.cuePoints[cuePoint] != 0){
-
       var ctx = this.waveform.getContext("2d");
       var x = this.timeStep * this.cuePoints[cuePoint];
-      ctx.font = "20px Arial";
+      ctx.font = "20px Arial";                                                   // TODO read from JSON file
       ctx.strokeStyle = this.color3;
       ctx.fillStyle = this.color3;
       ctx.fillText(++cuePoint, x - 15, 25);
       ctx.strokeRect(x, 0, 1, this.height);
     }
-  },
+  }
 
-  drawWaveform: function() {
-    console.time('Draw-waveform');
-
-    if(!this.container.defined)
-    {
-      this.container = document.getElementById(Deck.container.element);
+  drawWaveform(){
+    if(!this.container.defined){
+      this.container = document.getElementById(this.container.element);
       this.waveform = document.createElement("canvas");
-      this.container.appendChild(Deck.waveform);
+      this.container.appendChild(this.waveform);
       this.container.defined = true;
-      this.waveform.width = Deck.width;
-      this.waveform.height = Deck.height;
-      this.waveform.style.width = Deck.width + "px";
-      this.waveform.style.height = Deck.height + "px";
+      this.waveform.width = this.width;
+      this.waveform.height = this.height;
+      this.waveform.style.width = this.width + "px";
+      this.waveform.style.height = this.height + "px";
       this.waveform.style.position = 'absolute';
       this.currentTimeMark = document.getElementById('current-time-mark');
-      this.waveform.style.left = Deck.currentTimeMark.style.left;
+      this.waveform.style.left = this.currentTimeMark.style.left;
     }
 
     var ctx = this.waveform.getContext("2d");
@@ -174,15 +200,18 @@ var Deck = {
     var kPositive = 0;
     var drawIdx = step;
 
-    for (var i = 0; i < this.audioData.length; i++) {
+    ctx.clearRect(0, 0, this.width, this.height)
+
+    for (var i = 0; i < this.audioData.length; i++){
+
       if (i == drawIdx) {
 
         var p1 = maxNegative * halfHeight + halfHeight;
-        ctx.strokeStyle = Deck.color1;
+        ctx.strokeStyle = this.color1;
         ctx.strokeRect(x, p1, 1, (maxPositive * halfHeight + halfHeight) - p1);
 
         var p2 = sumNegative / kNegative * halfHeight + halfHeight;
-        ctx.strokeStyle = Deck.color2;
+        ctx.strokeStyle = this.color2;
         ctx.strokeRect(x, p2, 1, (sumPositive / kPositive * halfHeight + halfHeight) - p2);
 
         x++;
@@ -193,7 +222,9 @@ var Deck = {
         maxNegative = 0;
         kNegative = 0;
         kPositive = 0;
+
       } else {
+
         if (this.audioData[i] < 0) {
           sumNegative += this.audioData[i];
           kNegative++;
@@ -214,125 +245,118 @@ var Deck = {
     for(var cuePoint = 0; cuePoint < this.cuePoints.length; cuePoint++){
       this.drawCuePoint(cuePoint);
     }
-
-    Deck.waveform.style.left = parseInt(Deck.currentTimeMark.style.left) - ((Deck.timeStep * Deck.playbackTime) * Deck.track.playbackRate.value ) + 'px';
-    console.timeEnd('Draw-waveform');
   }
-}
 
-function init(){
+  bindButtons(){
+    var _deck = this;
+    document.getElementById('btn_deck_play').addEventListener('click', function(){
+      _deck.play();
+    });
+    document.getElementById('btn_deck_stop').addEventListener('click', function(){
+      _deck.stop();
+    });
+    document.getElementById('btn_deck_pause').addEventListener('click', function(){
+      _deck.pause();
+    });
+    document.getElementById('btn_deck_tempo_inc').addEventListener('click', function(){
+      _deck.playbackRate += 0.01;
+      _deck.track.playbackRate.value = _deck.playbackRate;
+    });
+    document.getElementById('btn_deck_tempo_dec').addEventListener('click', function(){
+      _deck.playbackRate -= 0.01;
+      _deck.track.playbackRate.value = _deck.playbackRate;
+    });
+    document.getElementById('btn_deck_zoom_inc').addEventListener('click', function(){
+      _deck.zoom('+');
+    });
+    document.getElementById('btn_deck_zoom_dec').addEventListener('click', function(){
+      _deck.zoom('-');
+    });
+    document.getElementById('btn_deck_zoom_res').addEventListener('click', function(){
+      _deck.zoom('0');
+    });
+    document.getElementById('btn_deck_set_cue_point_1').addEventListener('click', function(){
+      _deck.setCuePoint(1);
+    });
+    document.getElementById('btn_deck_set_cue_point_2').addEventListener('click', function(){
+      _deck.setCuePoint(2);
+    });
+    document.getElementById('btn_deck_set_cue_point_3').addEventListener('click', function(){
+      _deck.setCuePoint(3);
+    });
+    document.getElementById('btn_deck_set_cue_point_4').addEventListener('click', function(){
+      _deck.setCuePoint(4);
+    });
+    document.getElementById('btn_deck_del_cue_point_1').addEventListener('click', function(){
+      _deck.delCuePoint(1);
+    });
+    document.getElementById('btn_deck_del_cue_point_2').addEventListener('click', function(){
+      _deck.delCuePoint(2);
+    });
+    document.getElementById('btn_deck_del_cue_point_3').addEventListener('click', function(){
+      _deck.delCuePoint(3);
+    });
+    document.getElementById('btn_deck_del_cue_point_4').addEventListener('click', function(){
+      _deck.delCuePoint(4);
+    });
 
-  document.getElementById('btnDeck_play').addEventListener('click', function(){
-    Deck.play();
-  });
+  }
 
-  document.getElementById('btnDeck_stop').addEventListener('click', function(){
-    Deck.stop();
-  });
+  processAudioData() {
+    console.time('Audio-data');
 
-  document.getElementById('btnDeck_pause').addEventListener('click', function(){
-    Deck.pause();
-  });
+    if (this.audioBuffer.numberOfChannels > 1) {
 
-  document.getElementById('btnDeck_tempoInc').addEventListener('click', function(){
-    Deck.playbackRate += 0.01;
-    Deck.track.playbackRate.value = Deck.playbackRate;
-  });
+      var channel1Data = this.audioBuffer.getChannelData(0);
+      var channel2Data = this.audioBuffer.getChannelData(1);
 
-  document.getElementById('btnDeck_tempoDec').addEventListener('click', function(){
-    Deck.playbackRate -= 0.01;
-    Deck.track.playbackRate.value = Deck.playbackRate;
-  });
+      var length = channel1Data.length;
 
-  document.getElementById('btnDeck_zoomInc').addEventListener('click', function(){
-    Deck.zoom('+');
-  });
+      for (var i = 0; i < length; i++) {
+        this.audioData[i] = (channel1Data[i] + channel2Data[i]) / 2;
+      }
 
-  document.getElementById('btnDeck_zoomDec').addEventListener('click', function(){
-    Deck.zoom('-');
-  });
-
-  btnDeck_zoomRes.addEventListener('click', function(){
-    Deck.zoom('0');
-  });
-
-  document.getElementById('current-time-mark').style.left = '760px';
-
-  document.getElementById('btnDeck_cue_point_1').addEventListener('click', function (){
-    Deck.setCuePoint(1);
-  });
-  document.getElementById('btnDeck_cue_point_2').addEventListener('click', function (){
-    Deck.setCuePoint(2);
-  });
-  document.getElementById('btnDeck_cue_point_3').addEventListener('click', function (){
-    Deck.setCuePoint(3);
-  });
-  document.getElementById('btnDeck_cue_point_4').addEventListener('click', function (){
-    Deck.setCuePoint(4);
-  });
-  document.getElementById('btnDeck_cue_point_1_del').addEventListener('click', function (){
-    Deck.delCuePoint(1);
-  });
-  document.getElementById('btnDeck_cue_point_2_del').addEventListener('click', function (){
-    Deck.delCuePoint(2);
-  });
-  document.getElementById('btnDeck_cue_point_3_del').addEventListener('click', function (){
-    Deck.delCuePoint(3);
-  });
-  document.getElementById('btnDeck_cue_point_4_del').addEventListener('click', function (){
-    Deck.delCuePoint(4);
-  });
-}
-
-function processAudioData(buffer) {
-  console.time('Audio-data');
-
-  Deck.audioBuffer = buffer;
-  Deck.sampleRate = buffer.sampleRate;
-
-  if (buffer.numberOfChannels > 1) {
-
-    var channel1Data = buffer.getChannelData(0);
-    var channel2Data = buffer.getChannelData(1);
-
-    var length = channel1Data.length;
-
-    for (var i = 0; i < length; i++) {
-      Deck.audioData[i] = (channel1Data[i] + channel2Data[i]) / 2;
+    } else {
+      this.audioData = this.audioBuffer.getChannelData(0);
     }
 
-  } else {
-    Deck.audioData = buffer.getChannelData(0);
-  }
+    this.tempoData = new mt(this.audioData);
 
-  Deck.tempoData = new mt(Deck.audioData);
-
-  for (var i = 0; i < Deck.tempoData.beats.length; i++) {
-    Deck.beatTimes[i] = Math.round(Deck.sampleRate * Deck.tempoData.beats[i]);
-  }
-
-  document.getElementById('lblDeck_bpm').textContent = Deck.tempoData.tempo;
-  console.timeEnd('Audio-data');
-
-  Deck.setTimeStep();
-  Deck.drawWaveform();
-}
-
-function cycle(timestamp){
-
-  if(Deck.playing){
-
-    Deck.playbackTime = parseInt((Deck.audioCtx.currentTime - Deck.startTime) * 1000);
-    Deck.waveform.style.left = parseInt(Deck.currentTimeMark.style.left) - ((Deck.timeStep * Deck.playbackTime) * Deck.track.playbackRate.value ) + 'px';
-
-    if(Deck.playbackTime > (Deck.audioBuffer.duration * 1000)){
-      // Deck.stop();
+    for (var i = 0; i < this.tempoData.beats.length; i++) {
+      this.beatTimes[i] = Math.round(this.audioBuffer.sampleRate * this.tempoData.beats[i]);
     }
+
+    document.getElementById('lblDeck_bpm').textContent = this.tempoData.tempo;
+    console.timeEnd('Audio-data');
+
+    this.setTimeStep();
+    this.drawWaveform();
   }
 
-  Deck.displayPlaybackTime();
-  window.requestAnimationFrame(cycle);
+  reDraw(timestamp){
+
+    if(this.playing){
+
+      this.playbackTime = parseInt(((this.audioCtx.currentTime - this.startedAtTime) + (this.stopTime / 1000)) * 1000);
+      this.waveform.style.left = parseInt(this.currentTimeMark.style.left) - ((this.timeStep * this.playbackTime) * this.playbackRate ) + 'px';
+
+      if(this.playbackTime > (this.audioBuffer.duration * 1000)){
+        // this.stop();
+      }
+    }
+
+    this.displayPlaybackTime();
+
+    lblCurrentTime.textContent = this.audioCtx.currentTime;
+    lblStartedAtTime.textContent = this.startedAtTime;
+    lblStoppedAtTime.textContent = this.stopTime;
+    lblDeckRate.textContent = this.playbackRate;
+
+    window.requestAnimationFrame(this.reDraw.bind(this));
+  }
 }
+
+
 
 function onMIDISuccess(midiAccess) {
   console.log( "MIDI ready!" );

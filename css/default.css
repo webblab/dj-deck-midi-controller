@@ -5,14 +5,14 @@ body{
 
 #deck-waveform{
   height: 150px;
+  width: 800px;
   display: block;
 }
 
 #current-time-mark{
   height: 150px;
-  width:1px;
+  width:3px;
   border: 1px solid #5FBA7D;
-  background: #5FBA7D;
   position: absolute;
   left: 500px;
   z-index: 10;
@@ -43,11 +43,11 @@ body{
   height: 40px;
 }
 
-#btnDeck_play{
+#btn_deck_play{
   background: #088705;
 }
 
-#btnDeck_stop{
+#btn_deck_stop{
   background: #818705;
 }
 
