@@ -22,14 +22,15 @@ navigator.requestMIDIAccess().then( onMIDISuccess, onMIDIFailure );
 
 class Deck {
   constructor(){
-    this.color2 = '#ABE6FE';                                                            // TODO read from JSON
-    this.color1 = '#065ABC';
-    this.color3 = '#FEF200';
+    this.color2 = '#ABE6FE'; // WaveForm                                                           // TODO read from JSON
+    this.color1 = '#065ABC'; // WaveForm
+    this.color3 = '#FEF200'; // Cue Points
+    this.color4 = '#EA5758'; // Beat lines
     this.width = 32767;
     this.height = 150;
     this.volume = 1;
     this.mute = false;
-    this.zoomStep = 3;
+    this.zoomStep = 1.1;
     this.playbackRate = 1;
     this.startedAtTime = 0;
     this.stopTime = 0;
@@ -65,26 +66,24 @@ class Deck {
   }
 
   zoom(value){
-    var newValue;
+    var _width = this.width;
     if(value == '+'){
-      newValue = this.width * this.zoomStep;
-      if(newValue < 32767) {                                                    // 32767px max. canvas size
-        this.width = newValue;
-        this.drawWaveform();
-      } else {
+      this.width = this.width * this.zoomStep;
+      if(this.width > 32767) {                                                    // 32767px max. canvas size
         this.width = 32767;
-        this.drawWaveform();
       }
     }
-    if(value == '-'){//&& this.width > 1500){
-      newValue = this.width / this.zoomStep;
-      if(newValue > 800) {
-        this.width = newValue;
-        this.drawWaveform();
+    if(value == '-'){
+      this.width = this.width / this.zoomStep;
+      if(this.width < 800) {
+        this.width = 800;
       }
     }
     if(value == '0'){
       this.width = 32767;
+      this.drawWaveform();
+    }
+    if(_width != this.width){
       this.drawWaveform();
     }
     this.setTimeStep();
@@ -200,20 +199,16 @@ class Deck {
     var kPositive = 0;
     var drawIdx = step;
 
-    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.clearRect(0, 0, 32767, this.height)
 
     for (var i = 0; i < this.audioData.length; i++){
-
       if (i == drawIdx) {
-
         var p1 = maxNegative * halfHeight + halfHeight;
         ctx.strokeStyle = this.color1;
         ctx.strokeRect(x, p1, 1, (maxPositive * halfHeight + halfHeight) - p1);
-
         var p2 = sumNegative / kNegative * halfHeight + halfHeight;
         ctx.strokeStyle = this.color2;
         ctx.strokeRect(x, p2, 1, (sumPositive / kPositive * halfHeight + halfHeight) - p2);
-
         x++;
         drawIdx += step;
         sumPositive = 0;
@@ -222,9 +217,7 @@ class Deck {
         maxNegative = 0;
         kNegative = 0;
         kPositive = 0;
-
       } else {
-
         if (this.audioData[i] < 0) {
           sumNegative += this.audioData[i];
           kNegative++;
@@ -236,12 +229,12 @@ class Deck {
         }
       }
     }
-
+    // Draw Beats lines
     for (var i = 0; i < this.tempoData.beats.length; i++) {
-      ctx.strokeStyle = '#EA5758';
+      ctx.strokeStyle = this.color4;
       ctx.strokeRect(Math.round(this.beatTimes[i] / step), 0, 1, this.height);
     }
-
+    // Draw Cue Points
     for(var cuePoint = 0; cuePoint < this.cuePoints.length; cuePoint++){
       this.drawCuePoint(cuePoint);
     }
