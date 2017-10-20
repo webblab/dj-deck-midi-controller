@@ -3,17 +3,18 @@ const fs = require('fs');
 const mt = require('music-tempo');
 const toArrayBuffer = require('to-arraybuffer');
 var midi = null;
-var lblCurrentTime = document.getElementById('lblDeck_current_ac_time');
-var lblStartedAtTime = document.getElementById('lblDeck_started_at_time');
-var lblStoppedAtTime = document.getElementById('lblDeck_stopped_at_time');
-var lblDeckRate = document.getElementById('lblDeck_rate');
-var lblBpm = document.getElementById('lblDeck_bpm');
+
+var lblPlaybackRate   = document.getElementById('lbl_deck_playback_rate');
+var lblStartedAtTime  = document.getElementById('lbl_deck_started_at_time');
+var lblStoppedAtTime  = document.getElementById('lbl_deck_stopped_at_time');
+var lblCurrentTime    = document.getElementById('lbl_deck_current_ac_time');
+var lblDeckWidth      = document.getElementById('lbl_deck_width');
+var lblTimeStep       = document.getElementById('lbl_deck_time_step');
+var lblBPM            = document.getElementById('lbl_deck_bpm');
 
 window.addEventListener('load', function(){
   var deckA = new Deck();
-
   deckA.loadTrack();
-
 }, false);
 
 
@@ -22,72 +23,66 @@ navigator.requestMIDIAccess().then( onMIDISuccess, onMIDIFailure );
 
 class Deck {
   constructor(){
-    this.color2 = '#ABE6FE';                                                            // TODO read from JSON
-    this.color1 = '#065ABC';
-    this.color3 = '#FEF200';
-    this.width = 32767;
+    this.color2 = '#ABE6FE'; // WaveForm                                                           // TODO read from JSON
+    this.color1 = '#065ABC'; // WaveForm
+    this.color3 = '#FEF200'; // Cue Points
+    this.color4 = '#EA5758'; // Beat lines
+    this.cuePointFont = '12px Arial';
+    this.width = 800;
     this.height = 150;
     this.volume = 1;
     this.mute = false;
-    this.zoomStep = 3;
     this.playbackRate = 1;
     this.startedAtTime = 0;
     this.stopTime = 0;
     this.playbackTime = 0;
-    this.timeLabel = document.getElementById('lblDeck_time');
+    this.timeLabel = document.getElementById('lbl_deck_time');
     this.playing = false;
-    this.paused =false;
-    this.timeStep = 0;
+    this.paused = false;
+    this.cuePlay = false;
+    this.timeStep = 3;
     this.loaded = false;
-
-    this.container = {
-      waveform: '',
-      element: 'deck-waveform',
-      defined: false
-    },
-
-    this.currentTimeMark = '';
     this.audioCtx ={};
     this.audioBuffer = {};
     this.audioData = [];
     this.tempoData = {};
-    this.track = {};
-    this.trackSrc = 'snd/test_loop.wav';
+    this.trackSrc = 'snd/Stanton Warriors - Club Action (Stanton Warriors Remix).mp3';
     this.beatTimes = [];
-    this.cuePoints = [0,0,0,0];
+    this.cuePoints = [-1,-1,-1,-1];
     this.audioCtx = new AudioContext();
+    // Deck waveform container
+    this.container = document.getElementById('deck-waveform');
+    this.canvases = [0];
+    this.currentTimeMark = document.getElementById('current-time-mark');
+    document.getElementById('current-time-mark').style.left = '0px';
 
-    document.getElementById('current-time-mark').style.left = '760px';
-
+    this.createCanvas();
     this.bindButtons();
-    // this.loadTrack();
-    // this.reDraw();
+    this.program_loop();
   }
 
   zoom(value){
-    var newValue;
+    // var _width = this.width;
     if(value == '+'){
-      newValue = this.width * this.zoomStep;
-      if(newValue < 32767) {                                                    // 32767px max. canvas size
-        this.width = newValue;
-        this.drawWaveform();
-      } else {
+      this.width = this.width + 1000;
+      if(this.width > 32767) {                                                    // 32767px max. canvas size
         this.width = 32767;
-        this.drawWaveform();
       }
     }
-    if(value == '-'){//&& this.width > 1500){
-      newValue = this.width / this.zoomStep;
-      if(newValue > 800) {
-        this.width = newValue;
-        this.drawWaveform();
+    if(value == '-'){
+      this.width = this.width - 1000;
+      if(this.width < 800) {
+        this.width = 800;
       }
     }
     if(value == '0'){
       this.width = 32767;
-      this.drawWaveform();
     }
-    this.setTimeStep();
+    // if(_width != this.width){
+      this.waveform.width = this.width;
+      this.waveform.style.width = this.width + "px";
+      this.setTimeStep();
+    // }
   }
 
   loadTrack(){
@@ -97,59 +92,80 @@ class Deck {
       _deck.audioBuffer = buffer;
       _deck.processAudioData();
     });
-    this.loaded = true;
   }
 
   connect(){
     this.track = this.audioCtx.createBufferSource();
     this.track.buffer = this.audioBuffer;
     this.track.connect(this.audioCtx.destination);
+    this.loaded = true;
   }
 
-  play(){
+  play(playAt = this.stopTime){
     if(this.loaded && !this.playing){
       this.connect();
-      this.track.start(0, this.stopTime / 1000);
+      this.track.playbackRate.value = this.playbackRate;
+      this.track.start(0, playAt);
       this.startedAtTime = this.audioCtx.currentTime;
-      this.reDraw();
       this.playing = true;
       this.paused = false;
     }
   }
 
-  pause(){
+  pause(stopTime = this.playbackTime){
     if(this.playing){
-      this.track.stop();
-      // this.track.disconnect();
-      this.stopTime = this.playbackTime;
-      this.playing = false;
+      this.stop(stopTime);
       this.paused = true;
     }
   }
 
-  stop(){
-    if(this.playing){
-      this.track.stop();
-      // this.track.disconnect();
-      this.stopTime = 0;
-      this.playing = false;
-      this.reDraw();
-    }
+  stop(stopTime = 0){
+    this.track.stop();
+    this.track.disconnect();
+    this.playbackTime = stopTime;
+    this.stopTime = stopTime;
+    this.playing = false;
   }
 
-  displayPlaybackTime(){
-    this.timeLabel.textContent = this.playbackTime;
+  displayValues(){
+    lblBPM.textContent            = this.tempoData.tempo;
+    this.timeLabel.textContent    = this.playbackTime;
+    lblCurrentTime.textContent    = this.audioCtx.currentTime;
+    lblStartedAtTime.textContent  = this.startedAtTime;
+    lblStoppedAtTime.textContent  = this.stopTime;
+    lblDeckWidth.textContent      = this.width;
+    lblPlaybackRate.textContent   = this.playbackRate;
+    lblTimeStep.textContent       = this.timeStep;
   }
 
   setTimeStep(){
     this.timeStep = this.width / (this.audioBuffer.duration * 1000);
+    // this.timeStep = 0.1;
+    this.drawWaveform();
   }
 
-  setCuePoint(cuePoint){
+  cuePoint(cuePoint, mouse){
     cuePoint--;
-    if(this.cuePoints[cuePoint] == 0){
+
+    if(mouse == 'up' && this.cuePoints[cuePoint] == -1){
       this.cuePoints[cuePoint] = this.playbackTime;
       this.drawCuePoint(cuePoint);
+    }
+
+    if(mouse == 'down' && this.cuePoints[cuePoint] != -1 && !this.paused){
+      this.stop(this.cuePoints[cuePoint]);
+      this.play(this.cuePoints[cuePoint]);
+    }
+
+    if(mouse == 'down' && this.cuePoints[cuePoint] != -1 && this.paused){
+      this.stop(this.cuePoints[cuePoint]);
+      this.play(this.cuePoints[cuePoint]);
+      this.cuePlay = true;
+    }
+
+    if(mouse == 'up' && this.cuePoints[cuePoint] != -1 && this.cuePlay){
+      this.pause(this.cuePoints[cuePoint]);
+      this.cuePlay = false;
     }
   }
 
@@ -157,37 +173,25 @@ class Deck {
     cuePoint--;
     var ctx = this.waveform.getContext("2d");
     ctx.clearRect(0, 0, ctx.width, ctx.height);
-    this.cuePoints[cuePoint] = 0;
+    this.cuePoints[cuePoint] = -1;
     this.drawWaveform();
   }
 
-  drawCuePoint(cuePoint){
-    if(this.cuePoints[cuePoint] != 0){
-      var ctx = this.waveform.getContext("2d");
-      var x = this.timeStep * this.cuePoints[cuePoint];
-      ctx.font = "20px Arial";                                                   // TODO read from JSON file
-      ctx.strokeStyle = this.color3;
-      ctx.fillStyle = this.color3;
-      ctx.fillText(++cuePoint, x - 15, 25);
-      ctx.strokeRect(x, 0, 1, this.height);
-    }
+  createCanvas(){
+    this.waveform = document.createElement("canvas");
+    this.container.appendChild(this.waveform);
+    this.waveform.width = this.width;
+    this.waveform.height = this.height;
+    this.waveform.style.width = this.width + "px";
+    this.waveform.style.height = this.height + "px";
+    this.waveform.style.position = 'absolute';
+    this.waveform.style.left = this.currentTimeMark.style.left;
+    this.container.style.overflow = 'hidden';
+    // this.waveform.style.overflow = 'auto';
+    this.waveform.style.position = 'relative';
   }
 
   drawWaveform(){
-    if(!this.container.defined){
-      this.container = document.getElementById(this.container.element);
-      this.waveform = document.createElement("canvas");
-      this.container.appendChild(this.waveform);
-      this.container.defined = true;
-      this.waveform.width = this.width;
-      this.waveform.height = this.height;
-      this.waveform.style.width = this.width + "px";
-      this.waveform.style.height = this.height + "px";
-      this.waveform.style.position = 'absolute';
-      this.currentTimeMark = document.getElementById('current-time-mark');
-      this.waveform.style.left = this.currentTimeMark.style.left;
-    }
-
     var ctx = this.waveform.getContext("2d");
     var halfHeight = this.height / 2;
     var step = Math.round(this.audioData.length / this.width);
@@ -200,20 +204,16 @@ class Deck {
     var kPositive = 0;
     var drawIdx = step;
 
-    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.clearRect(0, 0, 32767, this.height)
 
     for (var i = 0; i < this.audioData.length; i++){
-
       if (i == drawIdx) {
-
         var p1 = maxNegative * halfHeight + halfHeight;
         ctx.strokeStyle = this.color1;
         ctx.strokeRect(x, p1, 1, (maxPositive * halfHeight + halfHeight) - p1);
-
         var p2 = sumNegative / kNegative * halfHeight + halfHeight;
         ctx.strokeStyle = this.color2;
         ctx.strokeRect(x, p2, 1, (sumPositive / kPositive * halfHeight + halfHeight) - p2);
-
         x++;
         drawIdx += step;
         sumPositive = 0;
@@ -222,9 +222,7 @@ class Deck {
         maxNegative = 0;
         kNegative = 0;
         kPositive = 0;
-
       } else {
-
         if (this.audioData[i] < 0) {
           sumNegative += this.audioData[i];
           kNegative++;
@@ -236,14 +234,40 @@ class Deck {
         }
       }
     }
+    // this.drawBeatLines(ctx);
+    // this.drawCuePoints(ctx);
+  }
 
+  drawBeatLines(){
+    var ctx = this.waveform.getContext("2d");
+    var step = Math.round(this.audioData.length / this.width);
     for (var i = 0; i < this.tempoData.beats.length; i++) {
-      ctx.strokeStyle = '#EA5758';
-      ctx.strokeRect(Math.round(this.beatTimes[i] / step), 0, 1, this.height);
+      ctx.strokeStyle = this.color4;
+      ctx.strokeRect(Math.round(this.beatTimes[i] / step), 0, 1, 30);
+      ctx.strokeRect(Math.round(this.beatTimes[i] / step), this.height - 30, 1, 30);
+      // Draw number to Beat line
+      ctx.font = this.cuePointFont;
+      ctx.fillStyle = this.color4;
+      ctx.fillText(i, Math.round(this.beatTimes[i] / step) + 5, 12);
     }
+  }
 
+  drawCuePoints(){
+    var ctx = this.waveform.getContext("2d");
     for(var cuePoint = 0; cuePoint < this.cuePoints.length; cuePoint++){
       this.drawCuePoint(cuePoint);
+    }
+  }
+
+  drawCuePoint(cuePoint){
+    if(this.cuePoints[cuePoint] != -1){
+      var ctx = this.waveform.getContext("2d");
+      var x = this.timeStep * this.cuePoints[cuePoint];
+      ctx.font = this.cuePointFont;                                                   // TODO read from JSON file
+      ctx.strokeStyle = this.color3;
+      ctx.fillStyle = this.color3;
+      ctx.fillText(++cuePoint, x - 15, this.height - 5);
+      ctx.strokeRect(x, 0, 1, this.height);
     }
   }
 
@@ -259,11 +283,11 @@ class Deck {
       _deck.pause();
     });
     document.getElementById('btn_deck_tempo_inc').addEventListener('click', function(){
-      _deck.playbackRate += 0.01;
+      _deck.playbackRate += 0.1;
       _deck.track.playbackRate.value = _deck.playbackRate;
     });
     document.getElementById('btn_deck_tempo_dec').addEventListener('click', function(){
-      _deck.playbackRate -= 0.01;
+      _deck.playbackRate -= 0.1;
       _deck.track.playbackRate.value = _deck.playbackRate;
     });
     document.getElementById('btn_deck_zoom_inc').addEventListener('click', function(){
@@ -275,17 +299,29 @@ class Deck {
     document.getElementById('btn_deck_zoom_res').addEventListener('click', function(){
       _deck.zoom('0');
     });
-    document.getElementById('btn_deck_set_cue_point_1').addEventListener('click', function(){
-      _deck.setCuePoint(1);
+    document.getElementById('btn_deck_set_cue_point_1').addEventListener('mouseup', function(){
+      _deck.cuePoint(1, 'up');
     });
-    document.getElementById('btn_deck_set_cue_point_2').addEventListener('click', function(){
-      _deck.setCuePoint(2);
+    document.getElementById('btn_deck_set_cue_point_1').addEventListener('mousedown', function(){
+      _deck.cuePoint(1, 'down');
     });
-    document.getElementById('btn_deck_set_cue_point_3').addEventListener('click', function(){
-      _deck.setCuePoint(3);
+    document.getElementById('btn_deck_set_cue_point_2').addEventListener('mouseup', function(){
+      _deck.cuePoint(2, 'up');
     });
-    document.getElementById('btn_deck_set_cue_point_4').addEventListener('click', function(){
-      _deck.setCuePoint(4);
+    document.getElementById('btn_deck_set_cue_point_2').addEventListener('mousedown', function(){
+      _deck.cuePoint(2, 'down');
+    });
+    document.getElementById('btn_deck_set_cue_point_3').addEventListener('mouseup', function(){
+      _deck.cuePoint(3, 'up');
+    });
+    document.getElementById('btn_deck_set_cue_point_3').addEventListener('mousedown', function(){
+      _deck.cuePoint(3, 'down');
+    });
+    document.getElementById('btn_deck_set_cue_point_4').addEventListener('mouseup', function(){
+      _deck.cuePoint(4, 'up');
+    });
+    document.getElementById('btn_deck_set_cue_point_4').addEventListener('mousedown', function(){
+      _deck.cuePoint(4, 'down');
     });
     document.getElementById('btn_deck_del_cue_point_1').addEventListener('click', function(){
       _deck.delCuePoint(1);
@@ -298,6 +334,10 @@ class Deck {
     });
     document.getElementById('btn_deck_del_cue_point_4').addEventListener('click', function(){
       _deck.delCuePoint(4);
+    });
+    document.getElementById('zoom-slider').addEventListener('change', function(){
+      _deck.width = document.getElementById('zoom-slider').value;
+      _deck.zoom();
     });
 
   }
@@ -326,36 +366,28 @@ class Deck {
       this.beatTimes[i] = Math.round(this.audioBuffer.sampleRate * this.tempoData.beats[i]);
     }
 
-    document.getElementById('lblDeck_bpm').textContent = this.tempoData.tempo;
-    console.timeEnd('Audio-data');
-
     this.setTimeStep();
-    this.drawWaveform();
+    this.connect();
   }
 
-  reDraw(timestamp){
-
+  program_loop(timestamp){
     if(this.playing){
-
-      this.playbackTime = parseInt(((this.audioCtx.currentTime - this.startedAtTime) + (this.stopTime / 1000)) * 1000);
-      this.waveform.style.left = parseInt(this.currentTimeMark.style.left) - ((this.timeStep * this.playbackTime) * this.playbackRate ) + 'px';
-
-      if(this.playbackTime > (this.audioBuffer.duration * 1000)){
-        // this.stop();
-      }
+      this.playbackTime = (((this.audioCtx.currentTime - this.startedAtTime) + this.stopTime) * this.playbackRate);
     }
+    if(this.playbackTime > (this.audioBuffer.duration)){
+      this.stop();
+      this.play();
+    }
+    this.shiftWaveform();
+    this.displayValues();
 
-    this.displayPlaybackTime();
+    window.requestAnimationFrame(this.program_loop.bind(this));
+  }
 
-    lblCurrentTime.textContent = this.audioCtx.currentTime;
-    lblStartedAtTime.textContent = this.startedAtTime;
-    lblStoppedAtTime.textContent = this.stopTime;
-    lblDeckRate.textContent = this.playbackRate;
-
-    window.requestAnimationFrame(this.reDraw.bind(this));
+  shiftWaveform(){
+    this.waveform.style.left = (this.playbackTime * this.timeStep * -1000) + 'px';
   }
 }
-
 
 
 function onMIDISuccess(midiAccess) {
