@@ -9,69 +9,42 @@
     </head>
 
     <body>
-        <div id="deck" class="container">
-          <div id="deck-waveform">
-            <div id="current-time-mark"></div>
-          </div>
-          <div class="btns-below">
-            <div id="btn_deck_play" class="deck-btn">Play</div>
-            <div id="btn_deck_pause" class="deck-btn">Pause</div>
-            <div id="btn_deck_stop" class="deck-btn">Stop</div>
-            <div id="btn_deck_tempo_inc" class="deck-btn small">+</div>
-            <div id="btn_deck_tempo_dec" class="deck-btn small">-</div>
-            <div id="btn_deck_zoom_inc" class="deck-btn small">Z+</div>
-            <div id="btn_deck_zoom_dec" class="deck-btn small">Z-</div>
-            <div id="btn_deck_zoom_res" class="deck-btn small">ZR</div>
+      <div id="deck">
+        <div id="deck-waveform-timeline"></div>
+        <div id="deck-waveform"></div>
+        <div id="deck-waveform-minimap"></div>
+        <div class="btns-below">
+          <div id="btn_deck_play" class="deck-btn">Play</div>
+          <div id="btn_deck_pause" class="deck-btn">Pause</div>
+          <div id="btn_deck_stop" class="deck-btn">Stop</div>
+          <div id="btn_deck_tempo_inc" class="deck-btn small">+</div>
+          <div id="btn_deck_tempo_dec" class="deck-btn small">-</div>
+          <div id="btn_deck_zoom_inc" class="deck-btn small">Z+</div>
+          <div id="btn_deck_zoom_dec" class="deck-btn small">Z-</div>
+          <div id="btn_deck_zoom_res" class="deck-btn small">ZR</div>
 
-            <div class="box">
-              <div id="btn_deck_set_cue_point_1" class="deck-btn small">1</div>
-              <div id="btn_deck_del_cue_point_1" class="deck-btn small">D</div>
-              <select id="btn_deck_cue_point_type_1" class="select-list deck-btn-small">
-                <option>Cue</option>
-                <option>Loop</option>
-                <option>Load</option>
-              </select>
-            </div>
-            <div class="box">
-              <div id="btn_deck_set_cue_point_2" class="deck-btn small">2</div>
-              <div id="btn_deck_del_cue_point_2" class="deck-btn small">D</div>
-              <select id="btn_deck_cue_point_type_1" class="select-list deck-btn-small">
-                <option>Cue</option>
-                <option>Loop</option>
-                <option>Load</option>
-              </select>
-            </div>
-            <div class="box">
-              <div id="btn_deck_set_cue_point_3" class="deck-btn small">3</div>
-              <div id="btn_deck_del_cue_point_3" class="deck-btn small">D</div>
-              <select id="btn_deck_cue_point_type_1" class="select-list deck-btn-small">
-                <option>Cue</option>
-                <option>Loop</option>
-                <option>Load</option>
-              </select>
-            </div>
-            <div class="box">
-              <div id="btn_deck_set_cue_point_4" class="deck-btn small">4</div>
-              <div id="btn_deck_del_cue_point_4" class="deck-btn small">D</div>
-              <select id="btn_deck_cue_point_type_1" class="select-list deck-btn-small">
-                <option>Cue</option>
-                <option>Loop</option>
-                <option>Load</option>
-              </select>
-            </div>
-            <input type="range" min="800" max="32767" value="800" class="" id="zoom-slider"><br>
+          <div class="box">
+            <div class="btn_deck_set_cue_point deck-btn small" data-number="1">1</div>
+            <div class="btn_deck_del_cue_point deck-btn small" data-number="1">D</div>
+            <select class="btn_deck_cue_point_type select-list deck-btn-small" data-number="1">
+              <option>Cue</option>
+              <option>Loop</option>
+              <option>Load</option>
+            </select>
           </div>
-
-          <span>Current Time actx: </span><span id="lbl_deck_current_ac_time">0</span><br>
-          <span>BPM: <span><span id="lbl_deck_bpm">0</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
-          <span>Playback Rate:</span><span id="lbl_deck_playback_rate"></span><br>
-          <span>StartTime: </span><span id="lbl_deck_started_at_time">0</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
-          <span>StopTime: </span><span id="lbl_deck_stopped_at_time">0</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
-          <span>Playback Time: </span><span id="lbl_deck_time">0</span><br>
-          <span>Width: </span><span id="lbl_deck_width">0</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp
-          <span>Time Step </span><span id="lbl_deck_time_step">0</span>
+          <div class="box">
+            <div class="btn_deck_set_cue_point deck-btn small" data-number="2">2</div>
+            <div class="btn_deck_del_cue_point deck-btn small" data-number="2">D</div>
+            <select class="btn_deck_cue_point_type select-list deck-btn-small" data-number="2">
+              <option>Cue</option>
+              <option>Loop</option>
+              <option>Load</option>
+            </select>
+          </div>
+          <input type="range" min="1" max="100" value="1" class="" id="zoom-slider"><br>
         </div>
-    </body>
+      </div>
 
-    <script src="player.js"></script>
+      <script src="player.js"></script>
+    </body>
 </html>

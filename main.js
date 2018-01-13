@@ -16,7 +16,7 @@ function createWindow () {
   mainWindow = new BrowserWindow({
       width: 800,
       height: 600,
-      fullscreen: true
+      fullscreen: false
     })
 
   // and load the index.html of the app.
