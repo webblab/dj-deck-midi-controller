@@ -1,16 +1,21 @@
-const fs  = require('fs');
-const ws  = require('wavesurfer.js');
-const tl  = require('wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js');
-const mm  = require('wavesurfer.js/dist/plugin/wavesurfer.minimap.js');
-const rg  = require('wavesurfer.js/dist/plugin/wavesurfer.regions.min.js');
+const fs = require('fs');
+const ws = require('wavesurfer.js');
+const tl = require('wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js');
+const mm = require('wavesurfer.js/dist/plugin/wavesurfer.minimap.js');
+const rg = require('wavesurfer.js/dist/plugin/wavesurfer.regions.min.js');
 const jt = require("jsmediatags");
 const mt = require("music-tempo");
+
+var wave_color = 'rgb(233,187,52)';
+var px_per_sec = 1;
+var tempoData;
+var sec_per_px;
 
 var cuePoints  = [0,0,0,0];
 var track_path = '../djplayer/snd/NOHA - Tu Cafe (Defkline, Red Polo & JFB remix).mp3';
 var wavesurfer = ws.create({
     container: '#deck-waveform',
-    waveColor: 'rgb(233,187,52)',
+    waveColor: wave_color,
     barWidth: '1',
     hideScrollbar: true,
     cursorColor: '#6F2F25',
@@ -59,13 +64,14 @@ wavesurfer.load(track_path);
 
 wavesurfer.on('ready', function () {
   wavesurfer.enableDragSelection({});
-  wavesurfer.zoom(100);
+  wavesurfer.zoom(px_per_sec);
 
   setTimeout(function(){
     wavesurfer.initPlugin('minimap');
   }, 1);
 
-  // getTempoData(wavesurfer.backend.buffer);
+  sec_per_px = wavesurfer.backend.buffer.duration / wavesurfer.drawer.width;
+  getTempoData(wavesurfer.backend.buffer);
   bindDeckControls();
 });
 
@@ -84,12 +90,13 @@ function getTempoData(buffer) {
     audioData = buffer.getChannelData(0);
   }
 
-  var tempoData = new mt(audioData);
+  tempoData = new mt(audioData);
+
+  drawTempoData();
 
   console.log(tempoData.tempo);
   console.log(tempoData.beats);
 }
-
 
 function bindDeckControls(){
   let d = document;
@@ -108,7 +115,8 @@ function bindDeckControls(){
   })
 
   d.querySelector('#zoom-slider').addEventListener('input', (e)=>{
-    wavesurfer.zoom(e.target.value);
+    px_per_sec = parseInt(e.target.value);
+    wavesurfer.zoom(px_per_sec);
     wavesurfer.minimap.render();
   });
 
@@ -128,10 +136,23 @@ function addCuePoint(cuePoint){
 
   wavesurfer.addRegion({
     start:  currentTime, // time in seconds
-    end:    currentTime + 0.01, // time in seconds
+    end:    currentTime + 0.1, // time in seconds
     color:  'red',
     loop:   false
   });
 
   cuePoints[cuePoint] = currentTime;
+  wavesurfer.params.waveColor = 'green';
+  wavesurfer.drawer.fillRect(150, 0, 1, wavesurfer.drawer.height);
+  wavesurfer.params.waveColor = wave_color;
+}
+
+function drawTempoData(){
+  wavesurfer.params.waveColor = 'brown';
+  wavesurfer.drawer.drawBars(tempoData.beats, 0, 0, 0);
+
+  // for (var i = 0; i < tempoData.beats.length; i++) {
+  //   wavesurfer.drawer.fillRect(tempoData.beats[i], 0, 1, wavesurfer.params.height);
+  //   wavesurfer.params.waveColor = wave_color;
+  // }
 }

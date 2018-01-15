@@ -3,21 +3,14 @@ body{
   background: #2a1818;
 }
 
-#deck-waveform{
-  height: 150px;
-  width: 840px;
-  position: relative;
-  left: 460px;
+#deck{
+  /*height: 150px;
+  width: 840px;*/
   display: block;
 }
 
-#current-time-mark{
-  height: 150px;
-  width:0px;
-  border-right: 1px solid #FFF;
-  position: absolute;
-  left: 0px;
-  z-index: 10;
+minimap:hover {
+  cursor: pointer;
 }
 
 .btns-below{
